@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Guía de despliegue · La Calle de las Aves y las Flores</title>
+<style>
+:root{--noche:#0B1530;--amarillo:#FFD122;--rojo:#E6323C;--verde:#88BE4C;--teal:#52B9AA;--crema:#F5F1E9;--tinta:#1B1B1F;--gris:#98999C}
+*{box-sizing:border-box}
+body{font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:var(--tinta);line-height:1.7;margin:0;background:var(--crema)}
+.wrap{max-width:820px;margin:0 auto;padding:0 22px 80px}
+header{background:var(--noche);color:#fff;padding:48px 22px;text-align:center}
+header .eyebrow{color:var(--amarillo);font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;font-weight:700}
+header h1{font-size:1.8rem;margin:.3em 0 .2em}
+header p{color:rgba(255,255,255,.75);margin:0;font-size:.95rem}
+.franja{height:6px;background:linear-gradient(90deg,var(--rojo) 0 25%,var(--amarillo) 0 50%,var(--verde) 0 75%,var(--teal) 0 100%)}
+h2{font-size:1.15rem;margin:38px 0 6px;display:flex;align-items:center;gap:12px}
+.num{background:var(--amarillo);color:var(--noche);width:32px;height:32px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;font-size:1rem;flex-shrink:0}
+h3{font-size:1rem;margin:22px 0 4px;color:var(--noche)}
+.intro{background:#fff;border-radius:14px;padding:22px 26px;margin-top:30px;box-shadow:0 6px 20px rgba(11,21,48,.06)}
+.paso{background:#fff;border-radius:14px;padding:8px 26px 22px;margin-top:16px;box-shadow:0 6px 20px rgba(11,21,48,.06);border-left:5px solid var(--teal)}
+code{background:#eee7d8;padding:2px 7px;border-radius:6px;font-size:.9em;font-family:'SF Mono',Consolas,monospace;color:#8a3a10}
+.dato{background:var(--noche);color:#fff;border-radius:10px;padding:14px 18px;font-family:'SF Mono',Consolas,monospace;font-size:.85rem;overflow-x:auto;margin:12px 0}
+.dato .c{color:var(--amarillo)}
+.aviso{background:#FFF6D6;border:1.5px solid var(--amarillo);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.92rem}
+.critico{background:#FBDCDE;border:1.5px solid var(--rojo);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.92rem}
+.ok{background:#E8F4D9;border:1.5px solid var(--verde);border-radius:10px;padding:14px 18px;margin:14px 0;font-size:.92rem}
+ul,ol{padding-left:22px}li{margin:5px 0}
+b{color:var(--noche)}
+.check{list-style:none;padding-left:0}
+.check li{padding-left:28px;position:relative}
+.check li::before{content:"✓";position:absolute;left:0;color:var(--verde);font-weight:800}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:.9rem}
+td{padding:8px 10px;border-bottom:1px solid #eee}
+td:first-child{font-weight:600;white-space:nowrap;color:var(--noche)}
+@media print{body{background:#fff}.paso,.intro{box-shadow:none;border:1px solid #ddd}}
+</style>
+</head>
+<body>
+<header>
+  <div class="eyebrow">Manizales Comparte</div>
+  <h1>Guía de despliegue en DreamHost</h1>
+  <p>La Calle de las Aves y las Flores · versión con base de datos MySQL</p>
+</header>
+<div class="franja"></div>
+
+<div class="wrap">
+
+<div class="intro">
+  <p style="margin-top:0"><b>Qué vas a lograr:</b> publicar la página en tu dominio con un panel de administración seguro. La contraseña se guardará cifrada en el servidor (nadie la puede ver en el código) y todo lo que administres —murales seleccionados, reseñas, aliados, videos, solicitudes— quedará en una base de datos central, visible para todos los visitantes al instante.</p>
+  <p style="margin-bottom:0"><b>Cuánto tarda:</b> unos 20–30 minutos. No necesitas saber programar: solo vas a editar un archivo, subir los demás y hacer clic en un botón.</p>
+</div>
+
+  <div class="aviso"><b>Antes de empezar necesitas:</b> acceso a tu panel de DreamHost y que tu dominio ya esté "Fully Hosted" en DreamHost (con el DNS apuntando a DreamHost). Ten a la mano los archivos del proyecto: <code>index.html</code>, <code>logo.png</code>, <code>api.php</code>, <code>config.php</code>, <code>db.php</code>, <code>setup.php</code> y <code>.htaccess</code>.</div>
+  <p style="margin-top:14px;font-size:.92rem"><b>¿Tienes un VPS en DreamHost?</b> Salta a la sección <a href="#vps-git" style="color:var(--teal);font-weight:600">Despliegue en VPS con Git</a> más abajo: ahí conectas por SSH, creas usuario y base de datos, y actualizas el sitio con <code>git push</code> desde tu PC.</p>
+
+<h2><span class="num">1</span> Crear la base de datos MySQL</h2>
+<div class="paso">
+  <p>En DreamHost las bases de datos se crean <b>solo desde el panel</b>.</p>
+  <ol>
+    <li>Entra a tu panel y ve a la sección <b>Websites → MySQL Databases</b>.</li>
+    <li>Busca <b>"Create a new MySQL database"</b> y llénalo así:
+      <ul>
+        <li><b>Database Name:</b> un nombre descriptivo, por ejemplo <code>aves_y_flores</code> (solo letras, números y guion bajo).</li>
+        <li><b>Use Hostname:</b> crea un hostname nuevo tipo <code>mysql.tudominio.com</code> (reemplaza por tu dominio real).</li>
+        <li><b>New User:</b> elige <b>"Create a new user now"</b>, ponle un nombre de usuario y una contraseña segura.</li>
+      </ul>
+    </li>
+    <li>Haz clic en <b>"Add new database now!"</b>.</li>
+  </ol>
+  <div class="aviso">Apunta estos cuatro datos, los usarás en el paso 2:
+    <div class="dato">
+      Hostname:  <span class="c">mysql.tudominio.com</span><br>
+      Database:  <span class="c">aves_y_flores</span><br>
+      Usuario:   <span class="c">(el que creaste)</span><br>
+      Contraseña:<span class="c">(la que creaste)</span>
+    </div>
+  </div>
+  <p style="font-size:.86rem;color:var(--gris)">Nota: el hostname <code>mysql.tudominio.com</code> empieza a funcionar cuando el DNS de tu dominio ya resuelve a DreamHost. Si tu dominio ya está alojado allí, funcionará en minutos.</p>
+</div>
+
+<h2><span class="num">2</span> Editar el archivo config.php</h2>
+<div class="paso">
+  <p>Este es el <b>único</b> archivo que debes editar. Ábrelo con un editor de texto plano (Bloc de notas en Windows, o TextEdit en Mac en modo texto plano).</p>
+  <p>Reemplaza los valores entre comillas por los datos del paso 1:</p>
+  <div class="dato">
+    define('DB_HOST', '<span class="c">mysql.tudominio.com</span>');<br>
+    define('DB_NAME', '<span class="c">aves_y_flores</span>');<br>
+    define('DB_USER', '<span class="c">tu_usuario</span>');<br>
+    define('DB_PASS', '<span class="c">tu_contraseña</span>');
+  </div>
+  <p>Un poco más abajo, cambia también el correo remitente por uno de tu dominio:</p>
+  <div class="dato">
+    define('CORREO_ORIGEN', '<span class="c">notificaciones@tudominio.com</span>');
+  </div>
+  <p>Guarda el archivo <b>sin cambiarle el nombre</b> (debe seguir siendo <code>config.php</code>) y con codificación UTF-8.</p>
+</div>
+
+<h2><span class="num">3</span> Crear el correo remitente <span style="font-size:.7rem;color:var(--gris);font-weight:400;margin-left:6px">(recomendado)</span></h2>
+<div class="paso">
+  <p>Para que los avisos de solicitudes no caigan en spam, conviene enviarlos desde una cuenta de tu propio dominio.</p>
+  <ol>
+    <li>En el panel ve a <b>Mail → Manage Email</b>.</li>
+    <li>Crea la cuenta <code>notificaciones@tudominio.com</code> (la misma que pusiste en <code>CORREO_ORIGEN</code>).</li>
+  </ol>
+  <p style="font-size:.86rem;color:var(--gris)">Los correos igual <b>llegarán</b> a <code>manizalescomparte@gmail.com</code>; este paso solo mejora la entrega. Puedes hacerlo después.</p>
+</div>
+
+<h2><span class="num">4</span> Subir los archivos al servidor</h2>
+<div class="paso">
+  <p>Sube los <b>6 archivos</b> a la carpeta de tu dominio. Tienes dos formas:</p>
+  <h3>Opción A — Administrador de archivos del panel (más fácil)</h3>
+  <ol>
+    <li>En el panel, ve a <b>Websites → Files → Manage Files</b> (abre el administrador de archivos).</li>
+    <li>Entra a la carpeta de tu dominio (normalmente se llama igual que tu dominio, por ejemplo <code>tudominio.com</code>).</li>
+    <li>Sube los 6 archivos ahí dentro.</li>
+  </ol>
+  <h3>Opción B — Con FileZilla por SFTP</h3>
+  <ul>
+    <li>Servidor/host: el de tu cuenta (algo como <code>tudominio.com</code>), <b>puerto 22</b>, tipo <b>SFTP</b>.</li>
+    <li>Usuario y contraseña: los de tu usuario de shell/SFTP (los ves en el panel, en <b>Users → Manage Users</b>).</li>
+    <li>Arrastra los 6 archivos a la carpeta del dominio.</li>
+  </ul>
+  <div class="critico"><b>Importante:</b> el archivo <code>.htaccess</code> empieza con punto, así que puede estar <b>oculto</b>. Asegúrate de que se haya subido. En el administrador de archivos activa "mostrar archivos ocultos"; en FileZilla usa el menú <i>Servidor → Forzar mostrar archivos ocultos</i>.</div>
+</div>
+
+<h2><span class="num">5</span> Ejecutar el instalador</h2>
+<div class="paso">
+  <ol>
+    <li>Abre en tu navegador: <code>https://tudominio.com/setup.php</code></li>
+    <li>Verás una pantalla azul. Escribe la <b>contraseña de administrador</b> que quieres usar para el panel (mínimo 6 caracteres) y haz clic en <b>Instalar</b>.</li>
+    <li>Espera unos segundos. Debe aparecer <b>"¡Instalación completada!"</b>.</li>
+  </ol>
+  <div class="ok">Esto crea automáticamente las tablas de la base de datos y carga los 7 murales, las reseñas de ejemplo y dos códigos de descuento. No tienes que tocar la base de datos manualmente.</div>
+</div>
+
+<h2><span class="num">6</span> Borrar setup.php</h2>
+<div class="paso">
+  <div class="critico"><b>Paso de seguridad obligatorio.</b> Una vez instalado, vuelve al administrador de archivos (o FileZilla) y <b>elimina el archivo <code>setup.php</code></b> del servidor. Así nadie podrá reinstalar ni reiniciar tu sitio.</div>
+</div>
+
+<h2><span class="num">7</span> Activar el candado de seguridad (HTTPS)</h2>
+<div class="paso">
+  <ol>
+    <li>En el panel ve a <b>Websites → Secure Certificates</b> (Certificados).</li>
+    <li>Junto a tu dominio, agrega un certificado <b>Let's Encrypt</b> (es <b>gratis</b>).</li>
+    <li>Espera entre 10 y 30 minutos a que se active.</li>
+  </ol>
+  <div class="ok">El archivo <code>.htaccess</code> que subiste ya se encarga de que todos los visitantes usen <code>https://</code> automáticamente. No tienes que configurar nada más.</div>
+</div>
+
+<h2><span class="num">8</span> Probar que todo funciona</h2>
+<div class="paso">
+  <ul class="check">
+    <li>Abre <code>https://tudominio.com</code>: deben verse los 7 murales.</li>
+    <li>Prueba el <b>cotizador</b>: escribe ancho y alto y verifica el cálculo.</li>
+    <li>Llena el formulario "Solicitar mi mural": debe descargarse el <b>PDF</b> y llegarte el correo.</li>
+    <li>Abajo del todo, haz clic en <b>"⚙ Acceso administrador"</b> e ingresa con tu contraseña.</li>
+    <li>En el panel, marca un mural como "Seleccionado por…" y confirma que en otra pestaña (o desde el celular) aparece el letrero rojo <b>para todos</b>.</li>
+  </ul>
+</div>
+
+<h2 style="margin-top:52px" id="vps-git"><span class="num">VPS</span> Despliegue en VPS con Git (actualizaciones automáticas)</h2>
+<div class="paso" style="border-left-color:var(--amarillo)">
+  <p style="margin-top:8px">Esta ruta es la recomendada si tienes un <b>VPS DreamHost</b>. Configuras el servidor una sola vez; después cada cambio en tu PC se publica con un solo comando.</p>
+
+  <h3>VPS-1 · Conectarte al servidor</h3>
+  <ol>
+    <li>En el panel DreamHost ve a <b>Servers → Manage Servers</b> y anota la IP del VPS.</li>
+    <li>Conéctate por SSH (PowerShell, Terminal o PuTTY):
+      <div class="dato">ssh root@IP_DE_TU_VPS</div>
+    </li>
+    <li>La primera vez te pedirá confirmar la huella del servidor; escribe <code>yes</code>.</li>
+  </ol>
+
+  <h3>VPS-2 · Crear usuario dedicado y preparar Git</h3>
+  <p>Primero copia la carpeta <code>deploy/</code> del proyecto al VPS (desde tu PC):</p>
+  <div class="dato">scp -r deploy root@IP_DE_TU_VPS:/root/</div>
+  <p>Luego en el VPS (como root), edita el dominio y ejecuta:</p>
+  <div class="dato">
+    ssh root@IP_DE_TU_VPS<br>
+    nano /root/deploy/setup-vps.sh<br>
+    sudo bash /root/deploy/setup-vps.sh
+  </div>
+  <p>Esto crea el usuario <code>avesmc</code> (o el nombre que elijas), el repositorio bare en <code>~/repos/aves-mc.git</code>, Apache apuntando a tu dominio y el hook <b>post-receive</b> que despliega automáticamente.</p>
+
+  <h3>VPS-3 · Crear la base de datos MySQL</h3>
+  <p>En el VPS (MySQL local):</p>
+  <div class="dato">
+    sudo mysql<br>
+    CREATE DATABASE aves_y_flores CHARACTER SET utf8mb4;<br>
+    CREATE USER 'aves_user'@'localhost' IDENTIFIED BY 'contraseña_segura';<br>
+    GRANT ALL ON aves_y_flores.* TO 'aves_user'@'localhost';<br>
+    FLUSH PRIVILEGES;<br>
+    EXIT;
+  </div>
+  <div class="aviso">Si prefieres la BD del panel DreamHost (hostname <code>mysql.tudominio.com</code>), créala en <b>MySQL Databases</b> como en el paso 1 de arriba y usa ese hostname en <code>config.php</code>.</div>
+
+  <h3>VPS-4 · Primer despliegue desde tu PC</h3>
+  <ol>
+    <li>En la carpeta del proyecto en tu computador:
+      <div class="dato">
+        git init<br>
+        git add .<br>
+        git commit -m "Sitio inicial"<br>
+        git branch -M main<br>
+        git remote add production avesmc@tudominio.com:repos/aves-mc.git<br>
+        git push -u production main
+      </div>
+    </li>
+    <li>El hook del servidor copia los archivos a la carpeta web y ejecuta <code>deploy/deploy.sh</code>.</li>
+    <li>Conéctate de nuevo al VPS y edita la configuración (no va en Git por seguridad):
+      <div class="dato">
+        ssh avesmc@tudominio.com<br>
+        cp ~/tudominio.com/config.php.example ~/tudominio.com/config.php<br>
+        nano ~/tudominio.com/config.php
+      </div>
+      Usa <code>DB_HOST=localhost</code>, el usuario y contraseña del paso VPS-3.
+    </li>
+    <li>Abre <code>https://tudominio.com/setup.php</code>, instala y <b>borra setup.php</b>.</li>
+    <li>Activa SSL: <code>sudo certbot --apache -d tudominio.com</code></li>
+  </ol>
+
+  <h3>VPS-5 · Flujo diario (push → deploy automático)</h3>
+  <div class="ok">Cada vez que cambies algo en tu PC:</div>
+  <div class="dato">
+    git add .<br>
+    git commit -m "Describe el cambio"<br>
+    git push production main
+  </div>
+  <p>El servidor recibe el push, actualiza los archivos y ejecuta el script de deploy. No necesitas FileZilla ni subir archivos a mano.</p>
+
+  <h3>Alternativa: pull manual en el servidor</h3>
+  <p>Si prefieres entrar al VPS y hacer pull tú mismo:</p>
+  <div class="dato">cd ~/tudominio.com && bash deploy/pull-deploy.sh</div>
+
+  <div class="critico" style="margin-bottom:0"><b>Importante:</b> <code>config.php</code> nunca se sube a Git (está en <code>.gitignore</code>). Cada servidor tiene el suyo. El logo del sitio es <code>logo.png</code> con fondo transparente.</div>
+</div>
+
+<h2 style="margin-top:44px">📌 Notas y mantenimiento</h2>
+<div class="paso" style="border-left-color:var(--gris)">
+  <table>
+    <tr><td>Cambiar la contraseña</td><td>Desde el panel de administración → pestaña <b>Ajustes</b> → "Cambiar contraseña del panel".</td></tr>
+    <tr><td>Copias de seguridad</td><td>En el panel, <b>MySQL Databases</b> permite restaurar copias. DreamHost hace respaldos automáticos; aun así conviene revisar cada tanto.</td></tr>
+    <tr><td>Si un correo cae en spam</td><td>Confirma que creaste <code>notificaciones@tudominio.com</code> (paso 3) y que está en <code>CORREO_ORIGEN</code>. Enviar desde una cuenta del propio dominio reduce el spam.</td></tr>
+    <tr><td>Cambiar precios o textos</td><td>Todo desde el panel, pestaña <b>Ajustes</b>: valor del m², porcentajes de apoyo, correo y condiciones del PDF.</td></tr>
+    <tr><td>Agregar murales, aliados, videos, reseñas</td><td>Desde las pestañas del panel. Los cambios se publican al instante para todos.</td></tr>
+  </table>
+  <div class="aviso" style="margin-bottom:0"><b>¿Algo no carga?</b> Si al abrir la página aparece un mensaje sobre la base de datos, casi siempre es que <code>config.php</code> tiene un dato mal escrito (hostname, usuario o contraseña). Revísalo, vuelve a subirlo y recarga.</div>
+</div>
+
+<p style="text-align:center;color:var(--gris);font-size:.82rem;margin-top:40px">La Calle de las Aves y las Flores · Manizales Comparte · La ruta de nuestra historia</p>
+
+</div>
+</body>
+</html>

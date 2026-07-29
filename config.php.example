@@ -1,0 +1,17 @@
+<?php
+/* =====================================================================
+   CONFIGURACIÓN · La Calle de las Aves y las Flores
+   ---------------------------------------------------------------------
+   Copia este archivo como config.php y rellena los valores reales.
+   En el servidor: cp config.php.example config.php && nano config.php
+   ===================================================================== */
+
+define('DB_HOST', 'mysql.manizalescomparte.com');
+define('DB_NAME', 'aves_y_flores');
+define('DB_USER', 'avesyflores_user');
+define('DB_PASS', 'contraseña_bd');
+
+define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
+define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
+
+date_default_timezone_set('America/Bogota');

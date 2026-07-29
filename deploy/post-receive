@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Hook Git en el servidor (bare repo). Instalar en:
+#   ~/repos/aves-mc.git/hooks/post-receive
+set -euo pipefail
+
+WEB_DIR="${WEB_DIR:-$HOME/aves-mc}"
+BRANCH="${BRANCH:-main}"
+GIT_DIR="$(pwd)"
+
+while read -r oldrev newrev ref; do
+  if [[ "$ref" != "refs/heads/$BRANCH" ]]; then
+    echo "Ignorando ref $ref (solo despliega $BRANCH)"
+    continue
+  fi
+
+  echo "==> Recibiendo push en $BRANCH ($newrev)"
+
+  mkdir -p "$WEB_DIR"
+  git --work-tree="$WEB_DIR" --git-dir="$GIT_DIR" checkout -f "$BRANCH"
+
+  if [[ -x "$WEB_DIR/deploy/deploy.sh" ]]; then
+    WEB_DIR="$WEB_DIR" BRANCH="$BRANCH" bash "$WEB_DIR/deploy/deploy.sh"
+  else
+    echo "AVISO: No se encontró deploy/deploy.sh"
+  fi
+done

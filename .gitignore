@@ -1,0 +1,12 @@
+# Credenciales del servidor (cada entorno tiene el suyo)
+config.php
+
+# Dependencias de desarrollo (scripts de utilidad)
+node_modules/
+package-lock.json
+package.json
+
+# Sistema / editor
+.DS_Store
+Thumbs.db
+*.swp

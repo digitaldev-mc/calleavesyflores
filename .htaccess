@@ -1,0 +1,26 @@
+# ============================================================
+# Seguridad · La Calle de las Aves y las Flores
+# ============================================================
+
+# --- Forzar HTTPS (todo el tráfico va cifrado) ---
+RewriteEngine On
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# --- Bloquear acceso directo a archivos sensibles ---
+<FilesMatch "^(config\.php|db\.php)$">
+    Require all denied
+</FilesMatch>
+
+# --- Impedir que se listen los directorios ---
+Options -Indexes
+
+# --- Cabeceras de seguridad recomendadas ---
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# --- Página de inicio ---
+DirectoryIndex index.html
