@@ -5,6 +5,10 @@
    ===================================================================== */
 require_once __DIR__ . '/db.php';
 
+define('AVES_APP', true);
+require_once __DIR__ . '/install.php';
+asegurar_instalacion();
+
 session_start();
 
 $accion = $_GET['action'] ?? '';

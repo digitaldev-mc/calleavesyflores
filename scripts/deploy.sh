@@ -44,7 +44,7 @@ chmod 644 "$WEB_ROOT/index.html" "$WEB_ROOT/api.php" "$WEB_ROOT/db.php" \
 chmod 600 "$WEB_ROOT/config.php"
 
 if [[ -f "$WEB_ROOT/setup.php" ]]; then
-  echo "AVISO: setup.php sigue en producción. Bórralo tras la instalación inicial."
+  echo "AVISO: setup.php no debe existir en producción. Elimínalo del web root."
 fi
 
 echo "==> Despliegue completado $(date -Is)"

@@ -14,4 +14,8 @@ define('DB_PASS', 'contraseña_bd');
 define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
 define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
 
+// Contraseña del panel de administrador la primera vez que se crea la base de datos.
+// Después cámbiala desde el panel (pestaña Ajustes).
+define('ADMIN_PASSWORD_INICIAL', 'CAMBIA-ESTA-CLAVE');
+
 date_default_timezone_set('America/Bogota');

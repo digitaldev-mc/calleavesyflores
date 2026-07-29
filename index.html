@@ -926,7 +926,7 @@ $('btnGuardarAjustes').addEventListener('click', async ()=>{
     const s = await api('session'); csrf = s.csrf; esAdmin = s.admin;
     await cargarContenido();
   }catch(e){
-    $('gridMurales').innerHTML = '<div class="cargando">No se pudo cargar el contenido. Verifica que el sitio esté bien instalado (setup.php) y que config.php tenga los datos correctos de la base de datos.</div>';
+    $('gridMurales').innerHTML = '<div class="cargando">No se pudo cargar el contenido. Verifica que config.php tenga los datos correctos de la base de datos y que la API responda.</div>';
   }
 })();
 </script>

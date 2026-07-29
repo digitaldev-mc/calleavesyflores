@@ -8,9 +8,14 @@ RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # --- Bloquear acceso directo a archivos sensibles ---
-<FilesMatch "^(config\.php|db\.php)$">
+<FilesMatch "^(config\.php|db\.php|install\.php|seed_data\.php)$">
     Require all denied
 </FilesMatch>
+
+# --- Por si reapareciera el instalador antiguo ---
+<Files "setup.php">
+    Require all denied
+</Files>
 
 # --- Impedir que se listen los directorios ---
 Options -Indexes
