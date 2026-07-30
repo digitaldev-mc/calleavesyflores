@@ -1,44 +1,169 @@
 <?php
-/* Envío de correos. DreamHost: crea la cuenta CORREO_ORIGEN en el panel (Mail). */
+/* Envío de correos HTML. DreamHost: crea la cuenta CORREO_ORIGEN en el panel (Mail). */
 
-function enviar_correo(string $destino, string $asunto, string $cuerpo, ?string $replyTo = null): bool {
-    if (!filter_var($destino, FILTER_VALIDATE_EMAIL)) {
-        error_log('aves-mc: destino de correo inválido');
-        return false;
-    }
-
-    $from = CORREO_ORIGEN;
-    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        error_log('aves-mc: CORREO_ORIGEN inválido en config.php — crea la cuenta en DreamHost');
-        return false;
-    }
-
-    $headers = [
-        'From: La Calle de las Aves <' . $from . '>',
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-        'Content-Transfer-Encoding: 8bit',
-    ];
-    if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
-        $headers[] = 'Reply-To: ' . $replyTo;
-    }
-
-    $asuntoEnc = '=?UTF-8?B?' . base64_encode($asunto) . '?=';
-    $headerStr = implode("\r\n", $headers);
-    // -f fija el remitente SMTP (requerido en muchos hosts compartidos/VPS)
-    $ok = mail($destino, $asuntoEnc, $cuerpo, $headerStr, '-f' . $from);
-    if (!$ok) {
-        error_log('aves-mc: mail() falló al enviar a ' . $destino);
-    }
-    return $ok;
+function fmt_cop(float $n): string {
+    return '$' . number_format($n, 0, ',', '.');
 }
 
-function notificar_solicitud(array $b, string $numero, string $fecha): bool {
-    $fmt = fn($n) => '$' . number_format((float) $n, 0, ',', '.');
-    $destino = cfg_get('correoDestino', CORREO_DESTINO);
-    $asunto  = 'Nueva solicitud de mural · ' . $b['negocio'] . ' · ' . $numero;
+function mural_para_correo(string $muralNum): ?array {
+    $st = db()->prepare('SELECT num, nombre, cientifico, color, img FROM murales WHERE num = ? LIMIT 1');
+    $st->execute([$muralNum]);
+    $row = $st->fetch();
+    return $row ?: null;
+}
+
+function data_uri_a_imagen(string $dataUri): ?array {
+    if (!preg_match('#^data:image/(jpeg|png|webp|gif);base64,(.+)$#s', $dataUri, $m)) {
+        return null;
+    }
+    $bin = base64_decode($m[2], true);
+    if ($bin === false) {
+        return null;
+    }
+    $type = $m[1];
+    return [
+        'mime' => 'image/' . ($type === 'jpeg' ? 'jpeg' : $type),
+        'data' => $bin,
+        'ext'  => $type === 'jpeg' ? 'jpg' : $type,
+    ];
+}
+
+function optimizar_imagen_correo(string $binary, int $maxW = 560): ?array {
+    if (!function_exists('imagecreatefromstring')) {
+        return ['mime' => 'image/jpeg', 'data' => $binary, 'ext' => 'jpg'];
+    }
+    $img = @imagecreatefromstring($binary);
+    if (!$img) {
+        return ['mime' => 'image/jpeg', 'data' => $binary, 'ext' => 'jpg'];
+    }
+    $w = imagesx($img);
+    $h = imagesy($img);
+    if ($w > $maxW) {
+        $nh = max(1, (int) round($h * ($maxW / $w)));
+        $out = imagecreatetruecolor($maxW, $nh);
+        imagecopyresampled($out, $img, 0, 0, 0, 0, $maxW, $nh, $w, $h);
+        imagedestroy($img);
+        $img = $out;
+    }
+    ob_start();
+    imagejpeg($img, null, 82);
+    $data = ob_get_clean();
+    imagedestroy($img);
+    return ['mime' => 'image/jpeg', 'data' => $data, 'ext' => 'jpg'];
+}
+
+function esc_html(string $s): string {
+    return htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+function fila_correo(string $label, string $valor): string {
+    return '<tr>
+      <td style="padding:10px 0;border-bottom:1px solid #E8E4DC;color:#98999C;font-size:13px;width:42%;vertical-align:top;">'
+        . esc_html($label) . '</td>
+      <td style="padding:10px 0;border-bottom:1px solid #E8E4DC;color:#1B1B1F;font-size:14px;font-weight:500;vertical-align:top;">'
+        . $valor . '</td>
+    </tr>';
+}
+
+function html_solicitud_email(array $b, string $numero, string $fecha, ?array $mural, bool $conImagen): string {
+    $fmt = 'fmt_cop';
+    $codigoTxt = ($b['codigo'] ?? '')
+        ? esc_html($b['codigo']) . ' (' . (int) ($b['codigoPct'] ?? 0) . '%) · ' . esc_html($fmt((float) ($b['dcto'] ?? 0)))
+        : 'No aplicó';
+    $correoCliente = esc_html($b['correo']);
+    $muralNombre = esc_html(($b['muralNum'] ?? '') . ' · ' . ($b['muralNombre'] ?? ''));
+    $cientifico = $mural ? esc_html($mural['cientifico'] ?? '') : '';
+    $accent = $mural && preg_match('/^#[0-9A-Fa-f]{6}$/', $mural['color'] ?? '') ? $mural['color'] : '#52B9AA';
+
+    $bloqueImagen = $conImagen
+        ? '<img src="cid:muralimg" alt="Mural seleccionado" width="520" style="display:block;width:100%;max-width:520px;height:auto;border-radius:14px;border:0;">'
+        : '<div style="background:linear-gradient(135deg,#0B1530,#121E42);border-radius:14px;padding:48px 24px;text-align:center;color:#FFD122;font-family:Georgia,serif;font-size:18px;">🎨 ' . $muralNombre . '</div>';
+
+    return '<!DOCTYPE html>
+<html lang="es">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#ECE8E0;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#ECE8E0;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;">
+
+        <tr><td style="background:#000;border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
+          <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#52B9AA;font-weight:bold;margin-bottom:8px;">Manizales Comparte</div>
+          <div style="font-size:22px;font-weight:bold;color:#FFD122;line-height:1.2;">La Calle de las Aves y las Flores</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:8px;">Nueva solicitud de cotización</div>
+        </td></tr>
+
+        <tr><td style="background:#F5F1E9;padding:24px 32px 0;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
+            <tr>
+              <td style="background:#0B1530;border-radius:12px;padding:16px 20px;">
+                <div style="font-size:11px;color:#52B9AA;letter-spacing:2px;text-transform:uppercase;">N° cotización</div>
+                <div style="font-size:20px;font-weight:bold;color:#FFD122;margin-top:4px;">' . esc_html($numero) . '</div>
+                <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px;">' . esc_html($fecha) . '</div>
+              </td>
+            </tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="background:#F5F1E9;padding:24px 32px 0;">
+          <div style="border-radius:14px;overflow:hidden;box-shadow:0 12px 40px rgba(11,21,48,.15);border:3px solid ' . esc_html($accent) . ';">'
+            . $bloqueImagen .
+          '</div>
+          <div style="margin-top:14px;">
+            <div style="font-size:11px;letter-spacing:2px;color:#52B9AA;text-transform:uppercase;font-weight:bold;">Mural elegido</div>
+            <div style="font-size:18px;font-weight:bold;color:#1B1B1F;margin-top:4px;">' . $muralNombre . '</div>'
+            . ($cientifico ? '<div style="font-size:13px;color:#98999C;font-style:italic;margin-top:2px;">' . $cientifico . '</div>' : '') .
+          '</div>
+        </td></tr>
+
+        <tr><td style="background:#F5F1E9;padding:28px 32px 0;">
+          <div style="font-size:12px;letter-spacing:2px;color:#52B9AA;text-transform:uppercase;font-weight:bold;margin-bottom:12px;">Datos del solicitante</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
+            . fila_correo('Nombre', esc_html($b['nombre']))
+            . fila_correo('Identificación', esc_html($b['identificacion']))
+            . fila_correo('Negocio', esc_html($b['negocio']))
+            . fila_correo('Dirección', esc_html($b['direccion']))
+            . fila_correo('Teléfono', esc_html($b['telefono']))
+            . fila_correo('Correo', '<a href="mailto:' . $correoCliente . '" style="color:#52B9AA;text-decoration:none;">' . $correoCliente . '</a>')
+          . '</table>
+        </td></tr>
+
+        <tr><td style="background:#F5F1E9;padding:28px 32px;">
+          <div style="font-size:12px;letter-spacing:2px;color:#52B9AA;text-transform:uppercase;font-weight:bold;margin-bottom:12px;">Detalle de la cotización</div>
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
+            . fila_correo('Medidas', esc_html($b['ancho'] . ' m × ' . $b['alto'] . ' m (' . $b['m2'] . ' m²)'))
+            . fila_correo('Valor total', esc_html($fmt((float) ($b['total'] ?? 0))))
+            . fila_correo('Apoyo Manizales Comparte', esc_html($fmt((float) ($b['aComparte'] ?? 0))))
+            . fila_correo('Apoyo institucional', esc_html($fmt((float) ($b['aInst'] ?? 0))))
+            . fila_correo('Código descuento', $codigoTxt)
+          . '</table>
+
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:20px;">
+            <tr><td style="background:linear-gradient(135deg,#E6323C,#c42830);border-radius:14px;padding:20px 24px;text-align:center;">
+              <div style="font-size:11px;color:rgba(255,255,255,.85);letter-spacing:2px;text-transform:uppercase;">Valor a pagar</div>
+              <div style="font-size:32px;font-weight:bold;color:#fff;margin-top:6px;">' . esc_html($fmt((float) ($b['pagar'] ?? 0))) . '</div>
+            </td></tr>
+          </table>
+        </td></tr>
+
+        <tr><td style="background:#0B1530;border-radius:0 0 18px 18px;padding:24px 32px;text-align:center;">
+          <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.6;">
+            Responde directamente a este correo para contactar al cliente.<br>
+            La Calle de las Aves y las Flores · Manizales Comparte
+          </div>
+        </td></tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>';
+}
+
+function texto_solicitud_email(array $b, string $numero, string $fecha): string {
+    $fmt = 'fmt_cop';
     $lineas = [
-        'Nueva solicitud desde la página La Calle de las Aves y las Flores',
+        'Nueva solicitud · La Calle de las Aves y las Flores',
         '',
         "N° cotización: $numero",
         "Fecha: $fecha",
@@ -48,16 +173,105 @@ function notificar_solicitud(array $b, string $numero, string $fecha): bool {
         "Negocio: {$b['negocio']}",
         "Dirección: {$b['direccion']}",
         "Teléfono: {$b['telefono']}",
-        "Correo del cliente: {$b['correo']}",
+        "Correo: {$b['correo']}",
         '',
-        "Mural elegido: {$b['muralNum']} · {$b['muralNombre']}",
+        "Mural: {$b['muralNum']} · {$b['muralNombre']}",
         "Medidas: {$b['ancho']} m x {$b['alto']} m ({$b['m2']} m²)",
-        'Valor total: ' . $fmt($b['total'] ?? 0),
-        'Apoyo Manizales Comparte: ' . $fmt($b['aComparte'] ?? 0),
-        'Apoyo institucional: ' . $fmt($b['aInst'] ?? 0),
-        'Código: ' . (($b['codigo'] ?? '') ? $b['codigo'] . ' (' . ($b['codigoPct'] ?? 0) . '%) = ' . $fmt($b['dcto'] ?? 0) : 'No aplicó'),
-        'VALOR A PAGAR: ' . $fmt($b['pagar'] ?? 0),
+        'Valor total: ' . $fmt((float) ($b['total'] ?? 0)),
+        'Apoyo Manizales Comparte: ' . $fmt((float) ($b['aComparte'] ?? 0)),
+        'Apoyo institucional: ' . $fmt((float) ($b['aInst'] ?? 0)),
+        'Código: ' . (($b['codigo'] ?? '') ? $b['codigo'] . ' (' . ($b['codigoPct'] ?? 0) . '%)' : 'No aplicó'),
+        'VALOR A PAGAR: ' . $fmt((float) ($b['pagar'] ?? 0)),
     ];
+    return implode("\n", $lineas);
+}
 
-    return enviar_correo($destino, $asunto, implode("\n", $lineas), $b['correo'] ?? null);
+function enviar_correo_html(string $destino, string $asunto, string $html, string $plain, ?string $replyTo = null, ?array $imagenInline = null): bool {
+    if (!filter_var($destino, FILTER_VALIDATE_EMAIL)) {
+        error_log('aves-mc: destino de correo inválido');
+        return false;
+    }
+
+    $from = CORREO_ORIGEN;
+    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
+        error_log('aves-mc: CORREO_ORIGEN inválido en config.php');
+        return false;
+    }
+
+    $boundaryMix = 'mix_' . bin2hex(random_bytes(8));
+    $boundaryAlt = 'alt_' . bin2hex(random_bytes(8));
+    $boundaryRel = 'rel_' . bin2hex(random_bytes(8));
+
+    $headers = [
+        'From: La Calle de las Aves <' . $from . '>',
+        'MIME-Version: 1.0',
+        'Content-Type: multipart/mixed; boundary="' . $boundaryMix . '"',
+    ];
+    if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
+        $headers[] = 'Reply-To: ' . $replyTo;
+    }
+
+    $body  = '--' . $boundaryMix . "\r\n";
+    $body .= 'Content-Type: multipart/alternative; boundary="' . $boundaryAlt . '"' . "\r\n\r\n";
+
+    $body .= '--' . $boundaryAlt . "\r\n";
+    $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+    $body .= $plain . "\r\n\r\n";
+
+    if ($imagenInline) {
+        $body .= '--' . $boundaryAlt . "\r\n";
+        $body .= 'Content-Type: multipart/related; boundary="' . $boundaryRel . '"' . "\r\n\r\n";
+
+        $body .= '--' . $boundaryRel . "\r\n";
+        $body .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+        $body .= $html . "\r\n\r\n";
+
+        $body .= '--' . $boundaryRel . "\r\n";
+        $body .= 'Content-Type: ' . $imagenInline['mime'] . '; name="mural.' . $imagenInline['ext'] . '"' . "\r\n";
+        $body .= "Content-Transfer-Encoding: base64\r\n";
+        $body .= "Content-ID: <muralimg>\r\n";
+        $body .= 'Content-Disposition: inline; filename="mural.' . $imagenInline['ext'] . '"' . "\r\n\r\n";
+        $body .= chunk_split(base64_encode($imagenInline['data'])) . "\r\n";
+
+        $body .= '--' . $boundaryRel . "--\r\n";
+    } else {
+        $body .= '--' . $boundaryAlt . "\r\n";
+        $body .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
+        $body .= $html . "\r\n\r\n";
+    }
+
+    $body .= '--' . $boundaryAlt . "--\r\n";
+    $body .= '--' . $boundaryMix . "--\r\n";
+
+    $asuntoEnc = '=?UTF-8?B?' . base64_encode($asunto) . '?=';
+    $ok = mail($destino, $asuntoEnc, $body, implode("\r\n", $headers), '-f' . $from);
+    if (!$ok) {
+        error_log('aves-mc: mail() falló al enviar a ' . $destino);
+    }
+    return $ok;
+}
+
+function notificar_solicitud(array $b, string $numero, string $fecha): bool {
+    $destino = cfg_get('correoDestino', CORREO_DESTINO);
+    $asunto  = 'Nueva solicitud de mural · ' . $b['negocio'] . ' · ' . $numero;
+
+    $mural = mural_para_correo((string) ($b['muralNum'] ?? ''));
+    $imagenInline = null;
+    $conImagen = false;
+
+    if ($mural && !empty($mural['img'])) {
+        $raw = data_uri_a_imagen($mural['img']);
+        if ($raw) {
+            $imagenInline = optimizar_imagen_correo($raw['data']);
+            $conImagen = $imagenInline !== null;
+        }
+    }
+
+    $html  = html_solicitud_email($b, $numero, $fecha, $mural, $conImagen);
+    $plain = texto_solicitud_email($b, $numero, $fecha);
+
+    return enviar_correo_html($destino, $asunto, $html, $plain, $b['correo'] ?? null, $conImagen ? $imagenInline : null);
 }
