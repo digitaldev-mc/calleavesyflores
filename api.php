@@ -132,29 +132,7 @@ try {
                 (float)($b['dcto'] ?? 0), (float)($b['pagar'] ?? 0),
             ]);
 
-            // Envío del correo al equipo
-            $fmt = fn($n) => '$' . number_format((float)$n, 0, ',', '.');
-            $destino = cfg_get('correoDestino', CORREO_DESTINO);
-            $asunto  = 'Nueva solicitud de mural · ' . $b['negocio'] . ' · ' . $numero;
-            $lineas = [
-                "Nueva solicitud desde la página La Calle de las Aves y las Flores", "",
-                "N° cotización: $numero", "Fecha: $fecha", "",
-                "Nombre: {$b['nombre']}", "Identificación: {$b['identificacion']}",
-                "Negocio: {$b['negocio']}", "Dirección: {$b['direccion']}",
-                "Teléfono: {$b['telefono']}", "Correo del cliente: {$b['correo']}", "",
-                "Mural elegido: {$b['muralNum']} · {$b['muralNombre']}",
-                "Medidas: {$b['ancho']} m x {$b['alto']} m ({$b['m2']} m²)",
-                "Valor total: " . $fmt($b['total'] ?? 0),
-                "Apoyo Manizales Comparte: " . $fmt($b['aComparte'] ?? 0),
-                "Apoyo institucional: " . $fmt($b['aInst'] ?? 0),
-                "Código: " . (($b['codigo'] ?? '') ? $b['codigo'] . ' (' . ($b['codigoPct'] ?? 0) . '%) = ' . $fmt($b['dcto'] ?? 0) : 'No aplicó'),
-                "VALOR A PAGAR: " . $fmt($b['pagar'] ?? 0),
-            ];
-            $cuerpoMail = implode("\n", $lineas);
-            $headers  = 'From: La Calle de las Aves <' . CORREO_ORIGEN . ">\r\n";
-            $headers .= 'Reply-To: ' . $b['correo'] . "\r\n";
-            $headers .= "Content-Type: text/plain; charset=utf-8\r\n";
-            @mail($destino, $asunto, $cuerpoMail, $headers);
+            notificar_solicitud($b, $numero, $fecha);
 
             responder(['ok' => true, 'numero' => $numero, 'fecha' => $fecha]);
             break;

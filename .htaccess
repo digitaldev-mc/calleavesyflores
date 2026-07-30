@@ -8,7 +8,7 @@ RewriteCond %{HTTPS} off
 RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 # --- Bloquear acceso directo a archivos sensibles ---
-<FilesMatch "^(config\.php|db\.php|install\.php|seed_data\.php)$">
+<FilesMatch "^(config\.php|db\.php|install\.php|seed_data\.php|mail\.php)$">
     Require all denied
 </FilesMatch>
 

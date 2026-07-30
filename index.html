@@ -763,7 +763,14 @@ async function abrirPanel(){
 /* ---- Solicitudes ---- */
 let solicitudesCache = [];
 async function cargarSolicitudes(){
-  try{ const r = await api('solicitudes_list'); solicitudesCache = r.solicitudes || []; }catch(e){ solicitudesCache = []; }
+  try{
+    const r = await api('solicitudes_list', conCsrf({}));
+    solicitudesCache = r.solicitudes || [];
+  }catch(e){
+    solicitudesCache = [];
+    $('listaSolicitudes').innerHTML = '<p style="font-size:.85rem;color:var(--rojo)">No se pudieron cargar las solicitudes. Cierra sesión, vuelve a entrar al panel e inténtalo de nuevo.</p>';
+    return;
+  }
   renderSolicitudes();
 }
 function renderSolicitudes(){

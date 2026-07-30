@@ -12,6 +12,7 @@ define('DB_USER', 'avesyflores_user');
 define('DB_PASS', 'contraseña_bd');
 
 define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
+// Cuenta REAL en DreamHost (Mail → Manage Email). Debe existir antes de enviar.
 define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
 
 // Contraseña del panel de administrador la primera vez que se crea la base de datos.
