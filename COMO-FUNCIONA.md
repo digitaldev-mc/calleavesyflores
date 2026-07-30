@@ -128,7 +128,7 @@ git push
 | Usuario VPS | `avesyflores_mzl` |
 | Ruta del código (git clone) en VPS | `/home/avesyflores_mzl/avesyflores-src` |
 | Ruta publicada (web root) en VPS | `/home/avesyflores_mzl/calleavesyflores.manizalescomparte.com` |
-| Logs Apache | `/home/avesyflores_mzl/logs/calleavesyflores.manizalescomparte.com/http/` |
+| Logs Apache | `~/logs/calleavesyflores.manizalescomparte.com/https/error.log` |
 | PHP en panel | 8.3 (recomendado) |
 | BD MySQL (DreamHost panel) | Crear hostname `mysql.manizalescomparte.com` |
 | Repo GitHub | `digitaldev-mc/calleavesyflores` |

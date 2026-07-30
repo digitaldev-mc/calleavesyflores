@@ -1,12 +1,22 @@
 #!/usr/bin/env php
 <?php
-/* Prueba de correo en el VPS: php scripts/test-mail.php */
+/* Prueba de correo en el VPS:
+   php ~/avesyflores-src/scripts/test-mail.php
+   (usa config.php del web root, no del repo git) */
 if (php_sapi_name() !== 'cli') {
     http_response_code(403);
     exit("Solo CLI\n");
 }
 
-require dirname(__DIR__) . '/db.php';
+$webRoot = getenv('WEB_ROOT') ?: (getenv('HOME') . '/calleavesyflores.manizalescomparte.com');
+$config  = $webRoot . '/config.php';
+
+if (!is_file($config)) {
+    fwrite(STDERR, "ERROR: no existe $config\n");
+    exit(1);
+}
+
+require $webRoot . '/db.php';
 
 $destino = CORREO_DESTINO;
 $from = CORREO_ORIGEN;
