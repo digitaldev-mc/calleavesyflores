@@ -34,11 +34,14 @@ function smtp_codigo(string $resp): int {
     return (int) substr($resp, 0, 3);
 }
 
-function smtp_cmd($fp, ?string $cmd, array $codigosOk): bool {
+function smtp_cmd($fp, ?string $cmd, array $codigosOk, ?string &$respOut = null): bool {
     if ($cmd !== null) {
         fwrite($fp, $cmd . "\r\n");
     }
     $resp = smtp_leer_respuesta($fp);
+    if ($respOut !== null) {
+        $respOut = $resp;
+    }
     $code = smtp_codigo($resp);
     foreach ($codigosOk as $ok) {
         if ($code === (int) $ok) {
@@ -55,7 +58,7 @@ function smtp_dot_stuff(string $data): string {
     return preg_replace('/^\./m', '..', $data);
 }
 
-function smtp_enviar(string $destino, string $asunto, string $html, string $plain, ?string $replyTo = null): bool {
+function smtp_enviar(string $destino, string $asunto, string $html, string $plain, ?string $replyTo = null, bool $verbose = false): bool {
     if (!filter_var($destino, FILTER_VALIDATE_EMAIL)) {
         error_log('aves-mc SMTP: destino inválido');
         return false;
@@ -71,6 +74,13 @@ function smtp_enviar(string $destino, string $asunto, string $html, string $plai
     $from = CORREO_ORIGEN;
     $fromName = 'La Calle de las Aves y las Flores';
 
+    $log = function (string $line) use ($verbose): void {
+        if ($verbose) {
+            echo $line . "\n";
+        }
+    };
+
+    $log("→ Conectando a {$host}:{$port}…");
     $fp = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, 30);
     if (!$fp) {
         error_log("aves-mc SMTP: no conecta a {$host}:{$port} — {$errstr} ({$errno})");
@@ -112,10 +122,12 @@ function smtp_enviar(string $destino, string $asunto, string $html, string $plai
     }
 
     $boundary = 'b_' . bin2hex(random_bytes(8));
+    $msgId = '<aves-' . date('YmdHis') . '-' . bin2hex(random_bytes(4)) . '@manizalescomparte.com>';
     $headers = [
         "From: {$fromName} <{$from}>",
         "To: <{$destino}>",
         'Subject: =?UTF-8?B?' . base64_encode($asunto) . '?=',
+        'Message-ID: ' . $msgId,
         'MIME-Version: 1.0',
         "Content-Type: multipart/alternative; boundary=\"{$boundary}\"",
     ];
@@ -136,10 +148,14 @@ function smtp_enviar(string $destino, string $asunto, string $html, string $plai
 
     fwrite($fp, smtp_dot_stuff($cuerpo) . "\r\n.\r\n");
 
-    if (!smtp_cmd($fp, null, [250])) {
+    $dataResp = '';
+    if (!smtp_cmd($fp, null, [250], $dataResp)) {
         fclose($fp);
         return false;
     }
+    $log('✓ DreamHost aceptó el mensaje: ' . trim(str_replace("\r\n", ' ', $dataResp)));
+    $log('  Message-ID: ' . $msgId);
+    $log('  Si no llega a Gmail en 5 min, el bloqueo es en entrega externa (SPF/DKIM/spam).');
 
     smtp_cmd($fp, 'QUIT', [221]);
     fclose($fp);
