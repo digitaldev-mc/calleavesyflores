@@ -15,8 +15,9 @@ define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
 // Cuenta REAL en DreamHost (Mail → Manage Email). Debe existir antes de enviar.
 define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
 
-// Contraseña del panel de administrador la primera vez que se crea la base de datos.
-// Después cámbiala desde el panel (pestaña Ajustes).
+// URL pública del sitio (para imágenes en correos). Opcional si el dominio es el de producción.
+define('SITE_URL', 'https://calleavesyflores.manizalescomparte.com');
+
 define('ADMIN_PASSWORD_INICIAL', 'CAMBIA-ESTA-CLAVE');
 
 date_default_timezone_set('America/Bogota');

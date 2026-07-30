@@ -76,6 +76,10 @@ try {
     switch ($accion) {
 
         /* ---------- PÚBLICO ---------- */
+        case 'mural_img':
+            servir_imagen_mural((string) ($_GET['num'] ?? ''));
+            break;
+
         case 'content':
             responder(contenido_publico());
             break;
