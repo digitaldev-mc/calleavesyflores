@@ -203,24 +203,9 @@ function texto_solicitud_email(array $b, string $numero, string $fecha): string 
 }
 
 function enviar_correo_plano(string $destino, string $asunto, string $cuerpo, ?string $replyTo = null): bool {
-    if (!filter_var($destino, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-    $from = CORREO_ORIGEN;
-    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
-        return false;
-    }
-    ini_set('sendmail_from', $from);
-    $headers = [
-        'From: La Calle de las Aves <' . $from . '>',
-        'MIME-Version: 1.0',
-        'Content-Type: text/plain; charset=UTF-8',
-    ];
-    if ($replyTo && filter_var($replyTo, FILTER_VALIDATE_EMAIL)) {
-        $headers[] = 'Reply-To: ' . $replyTo;
-    }
-    $asuntoEnc = '=?UTF-8?B?' . base64_encode($asunto) . '?=';
-    return mail($destino, $asuntoEnc, $cuerpo, implode("\r\n", $headers), '-f' . $from);
+    $html = '<pre style="font-family:Arial,sans-serif;font-size:14px;white-space:pre-wrap;">'
+        . esc_html($cuerpo) . '</pre>';
+    return enviar_correo_html($destino, $asunto, $html, $cuerpo, $replyTo);
 }
 
 function enviar_correo_html(string $destino, string $asunto, string $html, string $plain, ?string $replyTo = null): bool {
@@ -228,16 +213,20 @@ function enviar_correo_html(string $destino, string $asunto, string $html, strin
         error_log('aves-mc: destino de correo inválido');
         return false;
     }
-    $from = CORREO_ORIGEN;
-    if (!filter_var($from, FILTER_VALIDATE_EMAIL)) {
+    if (!filter_var(CORREO_ORIGEN, FILTER_VALIDATE_EMAIL)) {
         error_log('aves-mc: CORREO_ORIGEN inválido — revisa config.php');
         return false;
     }
 
-    ini_set('sendmail_from', $from);
+    if (smtp_configurado()) {
+        return smtp_enviar($destino, $asunto, $html, $plain, $replyTo);
+    }
+
+    error_log('aves-mc: SMTP no configurado (SMTP_PASS), usando mail() como respaldo');
+    ini_set('sendmail_from', CORREO_ORIGEN);
     $boundary = 'b_' . bin2hex(random_bytes(8));
     $headers = [
-        'From: La Calle de las Aves <' . $from . '>',
+        'From: La Calle de las Aves <' . CORREO_ORIGEN . '>',
         'MIME-Version: 1.0',
         'Content-Type: multipart/alternative; boundary="' . $boundary . '"',
     ];
@@ -246,21 +235,13 @@ function enviar_correo_html(string $destino, string $asunto, string $html, strin
     }
 
     $body  = '--' . $boundary . "\r\n";
-    $body .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-    $body .= $plain . "\r\n\r\n";
+    $body .= "Content-Type: text/plain; charset=UTF-8\r\n\r\n" . $plain . "\r\n\r\n";
     $body .= '--' . $boundary . "\r\n";
-    $body .= "Content-Type: text/html; charset=UTF-8\r\n";
-    $body .= "Content-Transfer-Encoding: 8bit\r\n\r\n";
-    $body .= $html . "\r\n\r\n";
+    $body .= "Content-Type: text/html; charset=UTF-8\r\n\r\n" . $html . "\r\n\r\n";
     $body .= '--' . $boundary . "--\r\n";
 
     $asuntoEnc = '=?UTF-8?B?' . base64_encode($asunto) . '?=';
-    $ok = mail($destino, $asuntoEnc, $body, implode("\r\n", $headers), '-f' . $from);
-    if (!$ok) {
-        error_log('aves-mc: mail() HTML falló hacia ' . $destino);
-    }
-    return $ok;
+    return mail($destino, $asuntoEnc, $body, implode("\r\n", $headers), '-f' . CORREO_ORIGEN);
 }
 
 function notificar_solicitud(array $b, string $numero, string $fecha): bool {

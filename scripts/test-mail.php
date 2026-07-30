@@ -1,8 +1,7 @@
 #!/usr/bin/env php
 <?php
-/* Prueba de correo en el VPS:
-   php ~/avesyflores-src/scripts/test-mail.php
-   (usa config.php del web root, no del repo git) */
+/* Prueba SMTP en el VPS:
+   php ~/avesyflores-src/scripts/test-mail.php */
 if (php_sapi_name() !== 'cli') {
     http_response_code(403);
     exit("Solo CLI\n");
@@ -18,14 +17,17 @@ if (!is_file($config)) {
 
 require $webRoot . '/db.php';
 
+if (!smtp_configurado()) {
+    fwrite(STDERR, "ERROR: define SMTP_PASS en config.php (contraseña del buzón notificaciones@...)\n");
+    exit(1);
+}
+
 $destino = CORREO_DESTINO;
-$from = CORREO_ORIGEN;
-$asunto = 'Prueba correo · La Calle de las Aves · ' . date('Y-m-d H:i:s');
-$cuerpo = "Si recibes esto, mail() funciona en DreamHost.\n\nOrigen: $from\nDestino: $destino\n";
+$asunto  = 'Prueba SMTP · La Calle de las Aves · ' . date('Y-m-d H:i:s');
+$plain   = "Si recibes esto, SMTP funciona.\n\nHost: " . smtp_host() . ':' . smtp_port() . "\nUsuario: " . smtp_usuario() . "\nDestino: $destino\n";
+$html    = '<p>Si recibes esto, <b>SMTP funciona</b>.</p><p>Destino: ' . htmlspecialchars($destino) . '</p>';
 
-ini_set('sendmail_from', $from);
-$headers = "From: La Calle de las Aves <$from>\r\nContent-Type: text/plain; charset=UTF-8\r\n";
-$ok = mail($destino, $asunto, $cuerpo, $headers, '-f' . $from);
+$ok = smtp_enviar($destino, $asunto, $html, $plain);
 
-echo $ok ? "OK: correo enviado a $destino\n" : "ERROR: mail() devolvió false\n";
-echo "Revisa bandeja y spam de $destino\n";
+echo $ok ? "OK: correo SMTP enviado a $destino\n" : "ERROR: SMTP falló (revisa SMTP_PASS y logs PHP)\n";
+echo "Revisa bandeja y spam de $destino (debería llegar en 1–3 min)\n";
