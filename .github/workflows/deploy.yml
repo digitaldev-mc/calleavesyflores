@@ -3,6 +3,7 @@ name: Deploy to VPS
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -10,8 +11,12 @@ jobs:
     steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.2.0
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          CORREO_NOMBRE: La Calle de las Aves y las Flores
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
-          script: bash ~/avesyflores-src/scripts/deploy.sh
+          envs: RESEND_API_KEY,CORREO_NOMBRE
+          script: bash ~/avesyflores-src/scripts/post-deploy.sh
