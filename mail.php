@@ -104,7 +104,7 @@ function fila_correo(string $label, string $valor): string {
     </tr>';
 }
 
-function html_solicitud_email(array $b, string $numero, string $fecha, ?array $mural, ?string $urlImagen): string {
+function html_solicitud_email(array $b, string $numero, string $fecha, ?array $mural, ?string $urlImagen, bool $paraCliente = false): string {
     $fmt = 'fmt_cop';
     $codigoTxt = ($b['codigo'] ?? '')
         ? esc_html($b['codigo']) . ' (' . (int) ($b['codigoPct'] ?? 0) . '%) · ' . esc_html($fmt((float) ($b['dcto'] ?? 0)))
@@ -113,6 +113,13 @@ function html_solicitud_email(array $b, string $numero, string $fecha, ?array $m
     $muralNombre = esc_html(($b['muralNum'] ?? '') . ' · ' . ($b['muralNombre'] ?? ''));
     $cientifico = $mural ? esc_html($mural['cientifico'] ?? '') : '';
     $accent = $mural && preg_match('/^#[0-9A-Fa-f]{6}$/', $mural['color'] ?? '') ? $mural['color'] : '#52B9AA';
+
+    $subtitulo = $paraCliente
+        ? 'Recibimos tu solicitud — copia de tu cotización'
+        : 'Nueva solicitud de cotización';
+    $pie = $paraCliente
+        ? 'Guarda este correo como comprobante. Pronto te contactará el equipo de Manizales Comparte.<br>La Calle de las Aves y las Flores · Manizales Comparte'
+        : 'Responde a este correo para contactar al cliente.<br>La Calle de las Aves y las Flores · Manizales Comparte';
 
     $bloqueImagen = $urlImagen
         ? '<img src="' . esc_html($urlImagen) . '" alt="Mural seleccionado" width="520" style="display:block;width:100%;max-width:520px;height:auto;border-radius:14px;border:0;">'
@@ -128,7 +135,7 @@ function html_solicitud_email(array $b, string $numero, string $fecha, ?array $m
         <tr><td style="background:#000;border-radius:18px 18px 0 0;padding:28px 32px;text-align:center;">
           <div style="font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#52B9AA;font-weight:bold;margin-bottom:8px;">Manizales Comparte</div>
           <div style="font-size:22px;font-weight:bold;color:#FFD122;line-height:1.2;">La Calle de las Aves y las Flores</div>
-          <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:8px;">Nueva solicitud de cotización</div>
+          <div style="font-size:13px;color:rgba(255,255,255,.75);margin-top:8px;">' . esc_html($subtitulo) . '</div>
         </td></tr>
         <tr><td style="background:#F5F1E9;padding:24px 32px 0;">
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
@@ -175,7 +182,7 @@ function html_solicitud_email(array $b, string $numero, string $fecha, ?array $m
           </table>
         </td></tr>
         <tr><td style="background:#0B1530;border-radius:0 0 18px 18px;padding:24px 32px;text-align:center;">
-          <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.6;">Responde a este correo para contactar al cliente.<br>La Calle de las Aves y las Flores · Manizales Comparte</div>
+          <div style="font-size:12px;color:rgba(255,255,255,.55);line-height:1.6;">' . $pie . '</div>
         </td></tr>
       </table>
     </td></tr>
@@ -184,10 +191,13 @@ function html_solicitud_email(array $b, string $numero, string $fecha, ?array $m
 </html>';
 }
 
-function texto_solicitud_email(array $b, string $numero, string $fecha): string {
+function texto_solicitud_email(array $b, string $numero, string $fecha, bool $paraCliente = false): string {
     $fmt = 'fmt_cop';
+    $intro = $paraCliente
+        ? 'Copia de tu cotización · La Calle de las Aves y las Flores'
+        : 'Nueva solicitud · La Calle de las Aves y las Flores';
     return implode("\n", [
-        'Nueva solicitud · La Calle de las Aves y las Flores', '',
+        $intro, '',
         "N° cotización: $numero", "Fecha: $fecha", '',
         "Nombre: {$b['nombre']}", "Identificación: {$b['identificacion']}",
         "Negocio: {$b['negocio']}", "Dirección: {$b['direccion']}",
@@ -250,17 +260,30 @@ function enviar_correo_html(string $destino, string $asunto, string $html, strin
 }
 
 function notificar_solicitud(array $b, string $numero, string $fecha): bool {
-    $destino = cfg_get('correoDestino', CORREO_DESTINO);
-    $asunto  = 'Nueva solicitud de mural · ' . $b['negocio'] . ' · ' . $numero;
-    $mural   = mural_para_correo((string) ($b['muralNum'] ?? ''));
-    $urlImg  = url_imagen_mural((string) ($b['muralNum'] ?? ''));
-    $plain   = texto_solicitud_email($b, $numero, $fecha);
-    $html    = html_solicitud_email($b, $numero, $fecha, $mural, $urlImg);
+    $equipo    = cfg_get('correoDestino', CORREO_DESTINO);
+    $mural     = mural_para_correo((string) ($b['muralNum'] ?? ''));
+    $urlImg    = url_imagen_mural((string) ($b['muralNum'] ?? ''));
+    $correoCli = trim((string) ($b['correo'] ?? ''));
 
-    $ok = enviar_correo_html($destino, $asunto, $html, $plain, $b['correo'] ?? null);
-    if (!$ok) {
-        error_log('aves-mc: reintento con correo texto plano');
-        $ok = enviar_correo_plano($destino, $asunto, $plain, $b['correo'] ?? null);
+    $htmlEquipo  = html_solicitud_email($b, $numero, $fecha, $mural, $urlImg, false);
+    $plainEquipo = texto_solicitud_email($b, $numero, $fecha, false);
+    $asuntoEquipo = 'Nueva solicitud de mural · ' . $b['negocio'] . ' · ' . $numero;
+
+    $equipoOk = enviar_correo_html($equipo, $asuntoEquipo, $htmlEquipo, $plainEquipo, $correoCli ?: null);
+    if (!$equipoOk) {
+        error_log('aves-mc: falló correo al equipo (' . $equipo . ')');
     }
-    return $ok;
+
+    $clienteOk = true;
+    if ($correoCli !== '' && filter_var($correoCli, FILTER_VALIDATE_EMAIL)) {
+        $htmlCliente  = html_solicitud_email($b, $numero, $fecha, $mural, $urlImg, true);
+        $plainCliente = texto_solicitud_email($b, $numero, $fecha, true);
+        $asuntoCliente = 'Copia de tu cotización · ' . $numero . ' · Manizales Comparte';
+        $clienteOk = enviar_correo_html($correoCli, $asuntoCliente, $htmlCliente, $plainCliente, $equipo);
+        if (!$clienteOk) {
+            error_log('aves-mc: falló correo al cliente (' . $correoCli . ')');
+        }
+    }
+
+    return $equipoOk && $clienteOk;
 }
