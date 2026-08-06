@@ -12,14 +12,13 @@ define('DB_USER', 'avesyflores_user');
 define('DB_PASS', 'contraseña_bd');
 
 define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
-// Cuenta REAL en DreamHost (Mail → Manage Email). Debe existir antes de enviar.
-define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
 
-// SMTP DreamHost (recomendado — entrega mucho más rápida que mail())
-define('SMTP_HOST', 'smtp.dreamhost.com');
-define('SMTP_PORT', 587);
-define('SMTP_USER', 'notificaciones@manizalescomparte.com');
-define('SMTP_PASS', 'contraseña-del-buzon');  // la misma de Mail → Manage Email
+// Remitente (debe ser un dominio verificado en Resend)
+define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
+define('CORREO_NOMBRE', 'La Calle de las Aves y las Flores');
+
+// Resend — https://resend.com (API → Create API Key)
+define('RESEND_API_KEY', 're_xxxxxxxxxxxxxxxxxxxxxxxx');
 
 define('SITE_URL', 'https://calleavesyflores.manizalescomparte.com');
 

@@ -1,6 +1,7 @@
 <?php
 /* Conexión a la base de datos y utilidades. No necesitas editar nada aquí. */
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/resend.php';
 require_once __DIR__ . '/smtp.php';
 require_once __DIR__ . '/mail.php';
 

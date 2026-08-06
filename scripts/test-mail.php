@@ -1,8 +1,7 @@
 #!/usr/bin/env php
 <?php
-/* Prueba SMTP en el VPS:
+/* Prueba de correo en el VPS:
    php ~/avesyflores-src/scripts/test-mail.php
-   php ~/avesyflores-src/scripts/test-mail.php --verbose
    php ~/avesyflores-src/scripts/test-mail.php otro@correo.com */
 if (php_sapi_name() !== 'cli') {
     http_response_code(403);
@@ -19,12 +18,6 @@ if (!is_file($config)) {
 
 require $webRoot . '/db.php';
 
-if (!smtp_configurado()) {
-    fwrite(STDERR, "ERROR: define SMTP_PASS en config.php\n");
-    exit(1);
-}
-
-$verbose = in_array('--verbose', $argv, true) || in_array('-v', $argv, true);
 $destino = CORREO_DESTINO;
 foreach ($argv as $arg) {
     if (str_contains($arg, '@')) {
@@ -32,17 +25,19 @@ foreach ($argv as $arg) {
     }
 }
 
-$asunto = 'Prueba SMTP · La Calle de las Aves · ' . date('Y-m-d H:i:s');
-$plain  = "Prueba SMTP desde el VPS.\nDestino: $destino\nHora: " . date('c') . "\n";
-$html   = '<p>Prueba <b>SMTP</b> desde el VPS.</p><p>Destino: ' . htmlspecialchars($destino) . '</p>';
+$asunto = 'Prueba Resend · La Calle de las Aves · ' . date('Y-m-d H:i:s');
+$plain  = "Prueba de correo vía Resend.\nDestino: $destino\nHora: " . date('c') . "\n";
+$html   = '<p>Prueba <b>Resend</b> desde el VPS.</p><p>Destino: ' . htmlspecialchars($destino) . '</p>';
 
-echo "Enviando a: $destino\n";
-echo "Desde: " . CORREO_ORIGEN . " vía " . smtp_host() . ':' . smtp_port() . "\n\n";
+echo "Destino: $destino\n";
+echo "Remitente: " . resend_remitente() . "\n\n";
 
-$ok = smtp_enviar($destino, $asunto, $html, $plain, null, $verbose);
+if (!resend_configurado()) {
+    fwrite(STDERR, "ERROR: define RESEND_API_KEY en config.php (empieza con re_)\n");
+    exit(1);
+}
 
-echo $ok ? "\nOK: DreamHost aceptó el envío\n" : "\nERROR: SMTP falló antes de aceptar\n";
-echo "\nSi OK pero no llega en 5 min:\n";
-echo "  1) Busca en Gmail: from:notificaciones@manizalescomparte.com (incl. spam)\n";
-echo "  2) Entra a webmail DreamHost como notificaciones@ → carpeta Enviados\n";
-echo "  3) Prueba otro destino: php scripts/test-mail.php tu-correo-personal@gmail.com\n";
+$ok = resend_enviar($destino, $asunto, $html, $plain);
+
+echo $ok ? "OK: Resend aceptó el envío\n" : "ERROR: Resend rechazó el envío (revisa logs PHP)\n";
+echo "Debería llegar en 1–2 minutos. Revisa bandeja y spam.\n";

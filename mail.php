@@ -218,11 +218,16 @@ function enviar_correo_html(string $destino, string $asunto, string $html, strin
         return false;
     }
 
+    if (resend_configurado()) {
+        return resend_enviar($destino, $asunto, $html, $plain, $replyTo);
+    }
+
     if (smtp_configurado()) {
+        error_log('aves-mc: Resend no configurado, usando SMTP DreamHost');
         return smtp_enviar($destino, $asunto, $html, $plain, $replyTo);
     }
 
-    error_log('aves-mc: SMTP no configurado (SMTP_PASS), usando mail() como respaldo');
+    error_log('aves-mc: ni Resend ni SMTP configurados, usando mail()');
     ini_set('sendmail_from', CORREO_ORIGEN);
     $boundary = 'b_' . bin2hex(random_bytes(8));
     $headers = [
