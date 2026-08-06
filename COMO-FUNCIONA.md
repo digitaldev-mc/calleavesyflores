@@ -29,6 +29,7 @@ SSH → VPS DreamHost (vps16389.dreamhostps.com, usuario avesyflores_mzl)
         ▼
   1. git pull en ~/avesyflores-src
   2. rsync → ~/calleavesyflores.manizalescomparte.com/   (sin tocar config.php)
+  3. (opcional) patch-config.php si Actions inyecta RESEND_API_KEY
         │
         ▼
 https://calleavesyflores.manizalescomparte.com  (Apache + PHP 8.3 + .htaccess)
@@ -66,11 +67,16 @@ aves-mc/
 ├── config.php.example      # Plantilla (copiar a config.php en el servidor)
 ├── setup.php               # Instalador de un solo uso
 ├── .htaccess               # HTTPS, seguridad, DirectoryIndex
+├── resend.php              # Envío transaccional vía Resend API
+├── mail.php                # Correos HTML (Resend → SMTP → mail())
 ├── scripts/
-│   ├── deploy.sh           # Se ejecuta EN EL VPS: pull + rsync
+│   ├── deploy.sh           # EN EL VPS: pull + rsync
+│   ├── post-deploy.sh      # EN EL VPS: deploy + verificación (usa Actions)
+│   ├── patch-config.php    # EN EL VPS: actualiza secrets en config.php
+│   ├── test-mail.php       # EN EL VPS: prueba Resend (CLI)
 │   ├── make-logo-transparent.mjs   # utilidad dev (opcional)
 │   └── patch-index-logo.mjs
-├── .github/workflows/deploy.yml   # GitHub Actions → SSH → deploy.sh
+├── .github/workflows/deploy.yml   # GitHub Actions → SSH → post-deploy.sh
 ├── deploy/                 # Scripts alternativos (bare repo); no usar si ya usas GitHub Actions
 ├── GUIA-DESPLIEGUE.html    # Guía visual para el cliente (no se publica)
 ├── COMO-FUNCIONA.md        # Este documento (no se publica)
@@ -109,13 +115,55 @@ Eso:
 3. Ejecuta `~/avesyflores-src/scripts/deploy.sh`.
 4. En ~10–30 segundos el sitio queda actualizado.
 
-**Ver si el deploy funcionó:** GitHub → repo → pestaña **Actions**. Verde = ok.
+**Ver si el deploy funcionó:** GitHub → repo → pestaña **Actions**. Verde = ok (típico: **10–30 s**).
 
 **Reintentar sin cambios de código:**
 ```bash
 git commit --allow-empty -m "Trigger deploy"
 git push
 ```
+
+También puedes ir a **Actions → Deploy to VPS → Run workflow** (botón manual).
+
+### Si GitHub Actions falla (respaldo manual)
+
+A veces el workflow falla **sin llegar al VPS**. Errores típicos en la pestaña Actions:
+
+| Mensaje | Significado |
+|---|---|
+| *The job was not acquired by Runner of type hosted…* | GitHub no tuvo runners disponibles (fallo de infraestructura). |
+| *Internal server error* | Error interno de GitHub (reintentar más tarde). |
+| Run en cola **7–15 min** y luego falla | Mismo problema: el job nunca arrancó. Revisa [githubstatus.com](https://www.githubstatus.com). |
+
+**Eso no significa que el sitio esté roto.** Si Actions falla, despliega tú en el VPS:
+
+```bash
+ssh avesyflores_mzl@vps16389.dreamhostps.com
+
+cd ~/avesyflores-src
+git pull origin main
+bash ~/avesyflores-src/scripts/deploy.sh
+```
+
+Verificación rápida:
+
+```bash
+git -C ~/avesyflores-src log -1 --oneline
+ls ~/calleavesyflores.manizalescomparte.com/resend.php
+php ~/avesyflores-src/scripts/test-mail.php
+```
+
+Deberías ver el commit reciente, que existe `resend.php`, y `OK: Resend aceptó el envío`.
+
+> **Nota:** el `git push` desde tu PC sube el código a GitHub, pero **no sustituye** el paso de `git pull` + `deploy.sh` en el VPS si Actions no corrió.
+
+### Cuando el push no dispara Actions
+
+Si haces `git push` y en Actions **no aparece un run nuevo**, el código igual quedó en GitHub. Opciones:
+
+1. **Deploy manual** en el VPS (comandos de arriba).
+2. **Run workflow** manual en GitHub → Actions.
+3. Confirmar que los secrets `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` siguen configurados.
 
 ---
 
@@ -140,6 +188,7 @@ git push
 | `VPS_HOST` | `vps16389.dreamhostps.com` |
 | `VPS_USER` | `avesyflores_mzl` |
 | `VPS_SSH_KEY` | Llave privada de despliegue (en `~/.ssh/authorized_keys` del usuario) |
+| `RESEND_API_KEY` | *(opcional)* API key de Resend (`re_…`). Actions la escribe en `config.php` vía `patch-config.php` |
 | `VPS_WORK_PATH` | *(opcional)* `/home/avesyflores_mzl/avesyflores-src` — el script ya usa esa ruta por defecto |
 
 > Puedes reutilizar la misma `VPS_SSH_KEY` que Presupuesto **si** la clave pública correspondiente está en `~/.ssh/authorized_keys` de `avesyflores_mzl`. Si no, genera una llave nueva solo para este usuario.
@@ -157,15 +206,35 @@ Logs de errores:
 tail -f ~/logs/calleavesyflores.manizalescomparte.com/http/error.log
 ```
 
-Deploy manual (si GitHub Actions falla):
+Deploy manual (si GitHub Actions falla o no se disparó):
+
 ```bash
-bash ~/avesyflores-src/scripts/deploy.sh
+cd ~/avesyflores-src && git pull origin main && bash ~/avesyflores-src/scripts/deploy.sh
 ```
 
-Editar credenciales de BD (solo en el servidor):
+Editar credenciales (solo en el servidor; el deploy **no** sobrescribe este archivo):
+
 ```bash
 nano ~/calleavesyflores.manizalescomparte.com/config.php
 ```
+
+Valores mínimos de correo en producción:
+
+```php
+define('CORREO_DESTINO', 'manizalescomparte@gmail.com');
+define('CORREO_ORIGEN', 'notificaciones@manizalescomparte.com');
+define('CORREO_NOMBRE', 'La Calle de las Aves y las Flores');
+define('RESEND_API_KEY', 're_…');   // dominio verificado en resend.com
+define('SITE_URL', 'https://calleavesyflores.manizalescomparte.com');
+```
+
+Probar correo desde el VPS:
+
+```bash
+php ~/avesyflores-src/scripts/test-mail.php
+```
+
+Al enviar una cotización desde la web llegan **dos correos**: uno al equipo (`CORREO_DESTINO`) y copia al cliente.
 
 ---
 
@@ -298,10 +367,11 @@ Probar: `git commit --allow-empty -m "Trigger deploy" && git push`
 
 ## 11. Roadmap / pendiente
 
-- [ ] Cuenta de correo `notificaciones@manizalescomparte.com` en el panel (menos spam).
+- [ ] Dominio `manizalescomparte.com` verificado en Resend (DNS en Cloudflare).
+- [ ] Rotar `RESEND_API_KEY` si alguna vez se expuso en chat o logs.
 - [ ] SSL Let's Encrypt si aún no está activo en el subdominio.
 - [ ] Respaldos periódicos de la BD MySQL.
 
 ---
 
-*Última actualización: julio 2026 — patrón alineado con presupuesto-ventas (GitHub Actions + deploy.sh + rsync).*
+*Última actualización: agosto 2026 — GitHub Actions + deploy manual de respaldo + Resend.*
